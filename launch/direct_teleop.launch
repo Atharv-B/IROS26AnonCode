@@ -1,0 +1,53 @@
+<launch>
+    <arg name="camera_prefix" default="static_camera"/>
+    <arg name="world_link" default="world"/>
+    <arg name="ip_address" default="192.168.1.10"/>
+    <arg name="robot_name" default="my_gen3"/>
+    <node pkg="tf2_ros" type="static_transform_publisher" name="world_to_base_link" 
+          args="0 0 0 0 0 0 $(arg world_link) base_link" />
+
+    <!-- joy args -->
+    <arg name="joy_config" default="xbox" />
+    <arg name="joy_dev" default="/dev/input/js1" />
+    <arg name="config_filepath" default="$(find hri-kinova-research)/config/$(arg joy_config).config.yaml" />
+    <arg name="joy_topic" default="joy" />
+
+    <arg name="task" default="sorting"/>
+    <arg name="treatment" default="A"/>
+    <arg name="feedback_type" default="visual_rich"/>
+    <arg name="trigger_threshold" default="-0.8"/>
+
+    <!-- main kortex robot node -->
+    <include file="$(find kortex_driver)/launch/kortex_driver.launch">
+        <arg name="ip_address" value="$(arg ip_address)"/>
+        <arg name="username" value="admin"/>
+        <arg name="password" value="admin"/>
+        <arg name="gripper" value="robotiq_2f_85"/>
+        <arg name="start_rviz" value="false"/>
+        <arg name="start_moveit" value="false"/>
+    </include>
+
+    <!-- joy node -->
+    <node pkg="joy" type="joy_node" name="joy_node">
+        <param name="dev" value="$(arg joy_dev)" />
+        <param name="deadzone" value="0.05" />
+        <param name="autorepeat_rate" value="0.0" /> 
+        <param name="coalesce_interval" value="0.05" />
+        <remap from="joy" to="$(arg joy_topic)" />
+    </node>
+
+    <node pkg="trust_and_transparency" type="goal_alignment_logger.py" name="goal_alignment_logger" output="screen">
+        <param name="task" value="$(arg task)"/>
+        <param name="treatment" value="$(arg treatment)"/>
+        <param name="trigger_threshold" value="$(arg trigger_threshold)"/>
+    </node>
+
+    <node pkg="trust_and_transparency" type="direct_teleop.py" name="direct_teleop" output="screen">
+        <param name="task" value="$(arg task)"/>
+        <param name="treatment" value="$(arg treatment)"/>
+        <param name="trigger_threshold" value="$(arg trigger_threshold)"/>
+        </node>
+        
+
+
+</launch>

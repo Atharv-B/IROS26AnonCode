@@ -1,0 +1,153 @@
+<launch>
+    <arg name="camera_prefix" default="static_camera"/>
+    <arg name="world_link" default="world"/>
+    <arg name="ip_address" default="192.168.1.10"/>
+    <arg name="robot_name" default="my_gen3"/>
+    <node pkg="tf2_ros" type="static_transform_publisher" name="world_to_base_link" 
+          args="0 0 0 0 0 0 $(arg world_link) base_link" />
+
+    <!-- joy args -->
+    <arg name="joy_config" default="xbox" />
+    <arg name="joy_dev" default="/dev/input/js1" />
+    <arg name="config_filepath" default="$(find hri-kinova-research)/config/$(arg joy_config).config.yaml" />
+    <arg name="joy_topic" default="joy" />
+
+    <arg name="task" default="sorting"/>
+    <arg name="treatment" default="C"/>
+    <arg name="feedback_type" default="visual_rich"/>
+
+    <!-- main kortex robot node -->
+    <include file="$(find kortex_driver)/launch/kortex_driver.launch">
+        <arg name="ip_address" value="$(arg ip_address)"/>
+        <arg name="username" value="admin"/>
+        <arg name="password" value="admin"/>
+        <arg name="gripper" value="robotiq_2f_85"/>
+        <arg name="start_rviz" value="false"/>
+        <arg name="start_moveit" value="false"/>
+    </include>
+
+    <!-- joy node -->
+    <node pkg="joy" type="joy_node" name="joy_node">
+        <param name="dev" value="$(arg joy_dev)" />
+        <param name="deadzone" value="0.05" />
+        <param name="autorepeat_rate" value="0.3" /> <!-- TEST This -->
+        <param name="coalesce_interval" value="0.05" />
+        <remap from="joy" to="$(arg joy_topic)" />
+    </node>
+
+    <!-- Background Filter node -->
+    <node pkg="hri-kinova-research" type="BackgroundFilter.py" name="point_cloud_filter" output="log">
+        <param name="task" value="$(arg task)"/>
+    </node>
+
+    <!-- clustering     -->
+    <node pkg="hri-kinova-research" type="clustering.py" name="point_cloud_processor"/>
+
+    <!-- YOLO -->
+    <!-- <node pkg="trust_and_transparency" type="yolo_for_trust.py" name="object_detector" output="screen"/> -->
+    <node pkg="trust_and_transparency" type="test_yolov11.py" name="object_detector"/>
+
+    <node pkg="trust_and_transparency" type="goal_alignment_logger.py" name="goal_alignment_logger" output="log">
+        <param name="task" value="$(arg task)"/>
+        <param name="treatment" value="$(arg treatment)"/>
+    </node>
+
+    <!-- End effector Realsense Camera Node -->
+    <!-- <include file="$(find realsense2_camera)/launch/rs_camera.launch"/> -->
+
+    
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <arg name="serial_no" value="247122071167"/> 
+    </include>
+
+    <!-- Environment Realsense Camera Node for Recording -->
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <arg name="serial_no" value="246422070578"/> 
+        <arg name="camera" value="camera_246422070578"/>
+    </include>
+
+    <!-- REALSENSE LAUNCH FILE FOR ENVIRONMENT CAMERA -->
+    <group ns="scene_camera">
+        <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+            <arg name="tf_prefix" value="$(arg camera_prefix)"/>
+            <arg name="serial_no" value="243322074721"/>
+            <!-- <arg name="initial_reset" value="true"/> -->
+            <!-- <arg name='depth_fps' value="15"/> -->
+    <!--         <arg name='color_fps' value="15"/> -->
+        </include>
+        <!-- <node pkg="trust_and_transparency" type="yolo_for_scene.py" name="object_detector" output="screen"/> -->
+    <node pkg="trust_and_transparency" type="yolov11_for_scene.py" name="object_detector"/>
+
+    </group>
+
+    <!-- Camera Calibration -->
+    <node pkg="camera_calibration_pkg" type="camera_calibration_node.py" name="camera_calibration_node" output="log">
+        <param name="camera_base_frame" value="$(arg camera_prefix)_link"/>
+        <param name="camera_world_frame" value="$(arg world_link)"/>
+        <param name='use_scene_camera' value="true"/>
+    </node>
+
+    <!-- Visual Sparse -->
+    <!-- <node pkg="trust_and_transparency" type="highest_confidence_object_viewer.py" name="highest_confidence_viewer" output="screen"/> -->
+
+    <!-- Visual Rich-->
+    <!-- <node pkg="trust_and_transparency" type="all_objects_confidences_viewer.py" name="all_objects_confidences_viewer" output="screen"/> -->
+    
+    <!-- Boxed Filter -->
+    <node pkg="hri-kinova-research" type="BoxedFilter.py" name="box_cloud_filter" output="log"/>
+
+    <!-- Feedback Visualizer -->
+    <node pkg="trust_and_transparency" type="viz_feedback.py" name="feedback_visualizer" output="screen">
+        <param name="feedback_type" value="$(arg feedback_type)"/>
+    </node>
+
+    <!-- VOSA for Trust -->
+    <group if="$(eval arg('task')=='shelving')">
+        <node pkg="trust_and_transparency" type="vosa_for_trust.py" name="vosa_teleop" output="screen">
+            <param name="task" value="$(arg task)"/>
+            <param name="treatment" value="$(arg treatment)"/>
+        </node>
+    </group>
+
+    <group if="$(eval arg('task')=='sorting')">
+        <node pkg="trust_and_transparency" type="vosa_top_down.py" name="vosa_teleop" output="log">
+            <param name="task" value="$(arg task)"/>
+            <param name="treatment" value="$(arg treatment)"/>
+        </node>
+    </group>
+
+
+    <!-- Cam to world -->
+    <node pkg='trust_and_transparency' type='cam_to_world.py' name='cam_to_world' output='log'/>
+
+    <!-- <node pkg="trust_and_transparency" type="cam_logger.py" name="camera_recorder" output="screen"/> -->
+
+    <!-- Recording Camera Node -->
+    <node pkg="trust_and_transparency" type="record.py" name="camera_recorder" output="screen">
+        <param name="task" value="$(arg task)"/>
+        <param name="treatment" value="$(arg treatment)"/>
+        <param name="camera_topic" value="/camera_246422070578/color/image_raw"/>
+    </node>
+
+    <node pkg="trust_and_transparency" type="scene_bb_from_centroids.py" name="scene_bbox_viz" output="log"/>
+        <!-- <param name="src_frame" value="base_link"/>
+        <param name="show_window" value="true"/> -->
+    <!-- </node> -->
+
+
+    <!-- Camera Calibration Node-->
+
+<!--     SET NAMES OF CAMERA BASE LINK AND WORLD LINK FOR CAMERA TF -->
+<!--     <arg name="camera_prefix" default="static_camera"/> -->
+<!--     <arg name="world_link" default="world"/> -->
+
+<!--     TF2 STATIC TRANSFORM PUBLISHER TO KINOVA BASE LINK -->
+    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="world_to_base_link"
+          args="0 0 0 0 0 0 $(arg world_link) base_link" />
+    <node name="camera_calib_node" pkg="medbot_kinova" type="camera_calibration_node.py" output="screen">
+        <param name="camera_base_frame" value="$(arg camera_prefix)_link"/>
+        <param name="camera_world_frame" value="$(arg world_link)"/>
+    </node> -->
+
+
+</launch>
