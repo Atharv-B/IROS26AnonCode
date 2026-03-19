@@ -3,18 +3,13 @@
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
 - [System Requirements](#system-requirements)
 - [Installation](#installation)
-- [Hardware Setup](#hardware-setup)
 - [Quick Start](#quick-start)
 - [Package Structure](#package-structure)
 - [Launch Files](#launch-files)
 - [Key Components](#key-components)
 - [User Study Protocol](#user-study-protocol)
-- [Configuration](#configuration)
-- [Data Collection](#data-collection)
-- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -31,19 +26,6 @@ The system uses:
 
 ---
 
-## Features
-
-- 🤖 **Teleoperation Control**: Xbox controller-based teleoperation of Kinova Gen3 arm with Robotiq 2F-85 gripper
-- 👁️ **Real-time Object Detection**: YOLOv11-based detection with confidence scoring
-- 📹 **Multi-camera System**: Three RealSense cameras (wrist-mounted, scene, recording)
-- 🎯 **Goal Alignment Tracking**: Monitors alignment between robot intentions and goal locations
-- 🔄 **TF2 Transforms**: Complete coordinate frame management for camera-to-world transformations
-- 📊 **Visual Feedback**: Bounding boxes and confidence overlays on detected objects
-- 🔊 **Auditory Feedback**: Text-to-speech feedback for object detection and robot state
-- 📝 **Logging**: Automated data collection for user study analysis
-- 🧪 **Multiple Task Modes**: Support for sorting, shelving, familiarity tasks
-
----
 
 ## System Requirements
 
@@ -67,9 +49,6 @@ The system uses:
 - `kortex_driver` - Kinova ROS driver
 - `realsense2_camera` - Intel RealSense ROS wrapper
 - `cv_bridge` - OpenCV-ROS bridge
-- `tf2_ros` - ROS transform library
-- `image_geometry` - Camera projection utilities
-- `joy` - Joystick driver
 - Python packages: `numpy`, `opencv-python`, `ultralytics` (YOLOv11), `torch`
 
 ---
@@ -110,15 +89,9 @@ The system uses:
 
 ---
 
-## Hardware Setup
-
-### Camera Mounting
-1. **End-effector camera**: Mount on robot wrist with clear view of gripper workspace
-2. **Scene camera**: Position overhead or at angle to capture full workspace
-3. **Recording camera**: External viewpoint for recording participant interactions
 
 ### Camera Calibration
-The package includes automated camera calibration. Ensure the scene camera has a clear view of the robot base link for accurate transformations.
+The package includes automated camera calibration.
 
 ### Robot Connection
 Connect the Kinova arm via Ethernet and configure the IP address (default: `192.168.1.10`).
@@ -241,11 +214,6 @@ Specific configuration for familiarity training tasks.
 - **Auditory Rich**: Verbal descriptions of all detected objects
 - **Auditory Sparse**: Alerts for highest confidence object only
 
-### Transform Management
-- Automatic calibration between camera frames and robot base
-- Real-time TF2 transformations for accurate centroid projection
-- Stabilization algorithms to reduce jitter
-
 ---
 
 ## User Study Protocol
@@ -267,91 +235,3 @@ roslaunch trust_and_transparency trust_feedback.launch \
     feedback_type:=visual_rich
 ```
 
-### Data Collected Per Trial
-- **`info.json`**: Participant ID, treatment order, metadata
-- **`joy.csv`**: Time-series of joystick movements
-- **`robot_state.csv`**: Robot joint angles and end-effector pose
-- **`audio_responses.csv`**: Text log of auditory feedback (auditory conditions only)
-- **`goals.json`**: Timestamps of goal location changes
-- **`end_effector_perspective.mov`**: Video from wrist camera
-- **`external_camera_perspective.mov`**: Video from recording camera
-- **Goal alignment logs**: Real-time tracking of robot-goal alignment
-
----
-
-## Configuration
-
-### Task-Specific Settings
-Edit [`src/constants.py`](src/constants.py):
-- `HOME`: Robot home position (joint angles)
-- `RETRACT`: Safe retract position
-- `SPEED_CONTROL`: Teleoperation speed multiplier (default: 0.5)
-- `PLACEMENT_THRESHOLDS`: Task-specific workspace boundaries
-- `ORACLE_GOAL_SET`: Ground truth object and goal locations
-
-### Camera Serial Numbers
-Edit launch files to match your RealSense serial numbers:
-```xml
-<arg name="serial_no" value="YOUR_SERIAL_HERE"/>
-```
-
-### Detection Parameters
-Adjust in node launch arguments:
-- `confidence_threshold`: Minimum confidence for stable detection (default: 0.3)
-- `movement_threshold`: Centroid stabilization distance (default: 0.03m)
-- `pixel_threshold`: Pixel stabilization distance (default: 1px)
-
----
-
-## Data Collection
-
-All experimental data is saved to participant-specific directories:
-```
-~/user_study_data/
-└── participant_XXXX/
-    ├── trial_1/
-    │   ├── info.json
-    │   ├── joy.csv
-    │   ├── robot_state.csv
-    │   ├── goals.json
-    │   ├── end_effector_perspective.mov
-    │   └── external_camera_perspective.mov
-    ├── trial_2/
-    └── ...
-```
-
-### Data Analysis
-CSV files contain timestamped data suitable for:
-- Trajectory analysis
-- Goal alignment metrics
-- Input analysis (joystick patterns)
-- Performance comparison across feedback conditions
-
----
-
-## Troubleshooting
-
-### Camera Issues
-- **Camera not detected**: Check `rs-enumerate-devices` to verify serial numbers
-- **Transform errors**: Ensure camera calibration node is running
-- **Low frame rate**: Reduce `depth_fps` and `color_fps` in launch file
-
-### Robot Connection
-- **Cannot connect**: Verify IP address and Ethernet connection
-- **Gripper not responding**: Check gripper parameter in `kortex_driver.launch`
-
-### YOLO Performance
-- **Slow detection**: Ensure CUDA is properly installed
-- **Poor accuracy**: Consider retraining model on your specific objects
-- **High CPU usage**: Reduce camera resolution or frame rate
-
-### TF Transform Issues
-```bash
-# View transform tree
-rosrun rqt_tf_tree rqt_tf_tree
-
-# Check specific transform
-rosrun tf tf_echo base_link static_camera_color_optical_frame
-```
-
----
